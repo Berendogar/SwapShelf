@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: swapshelf-beren-dogar
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: PRODUCTION
+        value: "1"
+      - key: SECRET_KEY
+        generateValue: true

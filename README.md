@@ -40,6 +40,14 @@ For a public Docker deployment, attach a persistent volume at `/app/data` and se
 `PRODUCTION=1`, `SECRET_KEY` and `ALLOWED_HOSTS`. `ALLOWED_HOSTS` is a comma-separated
 list, for example `swapshelf.example.com`.
 
+### Deploy on Render
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Berendogar/SwapShelf)
+
+The included Blueprint uses Render's free web-service plan for the assignment demo.
+Its SQLite database is ephemeral and is reseeded when the service is rebuilt. Use a
+persistent disk mounted at `/app/data` if the hosted data must survive deployments.
+
 ## Demo accounts
 
 Sign in with the username, not the email.

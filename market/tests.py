@@ -28,6 +28,14 @@ class PublicPageTests(TestCase):
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 200)
 
+    def test_removed_listing_is_not_public(self):
+        self.listing.status = "removed"
+        self.listing.save(update_fields=["status"])
+
+        response = self.client.get(reverse("listing_detail", args=[self.listing.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
     def test_logged_out_visitor_is_redirected_from_private_pages(self):
         urls = [reverse("listing_new"), reverse("mine"), reverse("profile"), reverse("desk")]
 

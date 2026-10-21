@@ -41,12 +41,18 @@ open a listing detail page (`/listings/<id>/`), register (`/register/`) and sign
 require an admin account. Posting, editing, the Mine page, profiles, messages and the
 department desk redirect to sign-in because their views use `login_required`.
 
+In the original code the detail page also opened removed listings if you typed their
+id. Removed listings now return 404.
+
 ## Profile form
 
-The profile form writes first name, last name and email back to Django's `User` row.
-The “Show my name on the department board” choice is stored separately in the
-one-to-one `Profile` row. It is a display preference and does not give the user any
-permission.
+In the original code the profile form wrote first name, last name, email and
+`is_staff` back to Django's `User` row. The “Show my name on the department board”
+checkbox was really `is_staff`.
+
+After the patch the form writes only first name, last name and email to `User`. The
+board choice is stored separately in the one-to-one `Profile` row. It is a display
+preference and does not give the user any permission.
 
 ## Department desk
 
@@ -54,7 +60,8 @@ The desk contains internal department pickup information, including the hold-clo
 location and reimbursement code. A visitor must be signed in and must already have
 Django's `is_staff` permission. A normal signed-in user receives HTTP 403. Staff
 status must be assigned by an administrator; it cannot be selected on the profile
-page.
+page. The hosted demo has no staff account, so the allowed case is checked in the
+tests.
 
 ## Security defect and reproduction
 
@@ -72,6 +79,8 @@ I reproduced it in the original version like this:
 
 The profile POST changed `is_staff` from false to true, so this was not only a hidden
 link problem. Typing the desk URL directly also worked after changing the checkbox.
+Because `is_staff` is also the Django admin flag, the same account could sign in at
+`/admin/`. It had no model permissions there, so it could not change data.
 
 ## Patch
 
@@ -81,12 +90,20 @@ name, email and this separate preference. The desk still checks `is_staff`, but 
 user can no longer grant that permission to themselves. Non-staff requests return
 403 and staff accounts can still use the page.
 
-While checking access control, I also found that any signed-in account could edit or
-mark another seller's listing as sold by changing the id in the URL. A guessed thread
-id could also expose its messages. The listing views now load only objects owned by
-the current seller, and the thread view only loads a thread for its buyer or seller.
-The page also hides seller controls from other users. Normal posting and messaging
-are unchanged.
+The patch does not take `is_staff` away from accounts that already used the bug. On
+Render the free database is rebuilt on every deploy, so this does not matter there.
+On a server that keeps its database, staff accounts that are not superusers should be
+checked by hand after deploying.
+
+While checking access control, I also found that any signed-in account could open,
+edit or mark sold another seller's listing by changing the id in the URL. The original
+detail page even showed the Edit and Mark sold buttons to everyone. Opening the edit
+page was enough to read the private seller note. For example, signed in as `sam`,
+`/listings/1/edit/` showed Alex's note with locker 14 and the code `SWAP-7741`. A
+guessed thread id could also expose its messages, for example `/threads/1/` between
+Alex and Jordan. The listing views now load only objects owned by the current seller,
+and the thread view only loads a thread for its buyer or seller. The page also hides
+seller controls from other users. Normal posting and messaging are unchanged.
 
 ## Verification
 
@@ -99,6 +116,6 @@ PRODUCTION=1 SECRET_KEY='use-a-long-random-value' \
   ALLOWED_HOSTS='your-hostname.example' python manage.py check --deploy
 ```
 
-The tests cover the public/private page split, normal profile updates, the failed
-privilege-escalation attempt, staff desk access, listing ownership and thread
-participants.
+The tests cover the public/private page split, removed listings, normal profile
+updates, the failed privilege-escalation attempt, staff desk access, listing ownership
+and thread participants.

@@ -17,7 +17,7 @@ def home(request):
 
 
 def listing_detail(request, pk):
-    listing = get_object_or_404(Listing, pk=pk)
+    listing = get_object_or_404(Listing.objects.exclude(status="removed"), pk=pk)
     return render(request, "market/detail.html", {"listing": listing})
 
 

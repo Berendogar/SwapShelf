@@ -1,7 +1,7 @@
 # SwapShelf Assignment
 
 **Student:** Beren Dogar  
-**Hosted URL:** _Add the production URL here after deployment._  
+**Hosted URL:** https://swapshelf-beren-dogar.onrender.com  
 **Patched repository:** https://github.com/Berendogar/SwapShelf
 
 ## Short architecture sketch

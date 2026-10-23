@@ -17,7 +17,7 @@ def home(request):
 
 
 def listing_detail(request, pk):
-    listing = get_object_or_404(Listing.objects.exclude(status="removed"), pk=pk)
+    listing = get_object_or_404(Listing, pk=pk)
     return render(request, "market/detail.html", {"listing": listing})
 
 
@@ -34,7 +34,7 @@ def listing_new(request):
 
 @login_required
 def listing_edit(request, pk):
-    listing = get_object_or_404(Listing, pk=pk, owner=request.user)
+    listing = get_object_or_404(Listing, pk=pk)
     form = ListingForm(request.POST or None, instance=listing)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -45,7 +45,7 @@ def listing_edit(request, pk):
 @login_required
 @require_POST
 def listing_sold(request, pk):
-    listing = get_object_or_404(Listing, pk=pk, owner=request.user)
+    listing = get_object_or_404(Listing, pk=pk)
     listing.status = "sold"
     listing.save(update_fields=["status"])
     return redirect("listing_detail", pk=listing.pk)
@@ -54,7 +54,7 @@ def listing_sold(request, pk):
 @login_required
 @require_POST
 def listing_delete(request, pk):
-    listing = get_object_or_404(Listing, pk=pk, owner=request.user)
+    listing = get_object_or_404(Listing, pk=pk)
     listing.status = "removed"
     listing.save(update_fields=["status"])
     return redirect("home")
@@ -70,9 +70,7 @@ def mine(request):
 
 @login_required
 def thread_detail(request, pk):
-    threads = Thread.objects.select_related("listing", "buyer", "listing__owner")
-    threads = threads.filter(buyer=request.user) | threads.filter(listing__owner=request.user)
-    thread = get_object_or_404(threads.distinct(), pk=pk)
+    thread = get_object_or_404(Thread.objects.select_related("listing", "buyer", "listing__owner"), pk=pk)
     if request.method == "POST":
         body = (request.POST.get("body") or "").strip()
         if body:
@@ -117,7 +115,7 @@ def profile(request):
 @login_required
 def desk(request):
     if not request.user.is_staff:
-        return render(request, "market/desk.html", {"allowed": False}, status=403)
+        return render(request, "market/desk.html", {"allowed": False})
     return render(
         request,
         "market/desk.html",

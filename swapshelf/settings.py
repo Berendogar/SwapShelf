@@ -1,23 +1,11 @@
 import os
 from pathlib import Path
 
-from django.core.exceptions import ImproperlyConfigured
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-PRODUCTION = os.environ.get("PRODUCTION", "0") == "1"
 SECRET_KEY = os.environ.get("SECRET_KEY", "swapshelf-dev-secret")
-if PRODUCTION and SECRET_KEY == "swapshelf-dev-secret":
-    raise ImproperlyConfigured("Set SECRET_KEY when PRODUCTION=1")
-
 DEBUG = os.environ.get("DEBUG", "0") == "1"
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",")
-    if host.strip()
-]
-if render_hostname := os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
-    ALLOWED_HOSTS.append(render_hostname)
+ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -72,20 +60,9 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
-STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
-
+STATICFILES_DIRS = [BASE_DIR / "market" / "static"]
+WHITENOISE_USE_FINDERS = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = PRODUCTION
-SESSION_COOKIE_SECURE = PRODUCTION
-CSRF_COOKIE_SECURE = PRODUCTION
-SECURE_HSTS_SECONDS = 3600 if PRODUCTION else 0
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "sign_in"
 LOGIN_REDIRECT_URL = "home"

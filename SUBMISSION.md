@@ -4,7 +4,7 @@
 **Hosted URL:** https://swapshelf-beren-dogar.onrender.com  
 **Patched repository:** https://github.com/Berendogar/SwapShelf
 
-## Short architecture sketch
+## Architecture sketch
 
 ```text
 Browser
@@ -13,109 +13,83 @@ Browser
   -> market/views.py
   -> market/forms.py (when a form is submitted)
   -> market/models.py
-  -> data/swapshelf.db
+  -> data/swapshelf.db (SQLite)
 
-The view sends the result to a template in market/templates/market/.
+The view renders a template from market/templates/market/.
 ```
 
-This is a server-rendered Django application. Django handles login and sessions. The
-`market` app contains the listings, message threads and messages. SQLite keeps the
-data, so there is no separate database server.
+SwapShelf is a server-rendered Django app. Django's auth app handles accounts and
+sessions. The `market` app has the listings, message threads and messages. Data is
+stored in one SQLite file.
 
 ## How a listing id becomes a row
 
-When a listing is created, `listing_new` validates `ListingForm`, adds the logged-in
-user as the owner and calls `listing.save()`. SQLite inserts a row into
-`market_listing` and creates its integer primary key automatically.
+`/listings/3/` matches `listings/<int:pk>/` in `market/urls.py`, so Django calls
+`listing_detail(request, pk=3)`. The view runs `get_object_or_404(Listing, pk=3)`,
+which selects the row with id 3 from the `market_listing` table and returns it as a
+`Listing` object. If no row exists the visitor gets a 404. The object is rendered
+with `detail.html`.
 
-For example, `/listings/3/` matches `<int:pk>` in `market/urls.py`. Django passes
-`pk=3` to `listing_detail`. `get_object_or_404(Listing, pk=pk)` asks the ORM for the
-row whose primary key is 3. Django turns that row into a `Listing` object, or returns
-a 404 page if it does not exist. The object is then rendered by `detail.html`.
+New ids come from SQLite. `listing_new` saves the form with the logged-in user as
+the owner, the row is inserted and SQLite gives it the next integer primary key.
 
-## Pages available without signing in
+## Pages a logged-out visitor can open
 
-A logged-out visitor can open the public board (`/`), use its category query string,
-open a listing detail page (`/listings/<id>/`), register (`/register/`) and sign in
-(`/login/`). The Django admin login page is also reachable, but its contents still
-require an admin account. Posting, editing, the Mine page, profiles, messages and the
-department desk redirect to sign-in because their views use `login_required`.
+- the board `/`, including the category filter (`/?category=books`)
+- listing detail pages `/listings/<id>/`
+- `/register/` and `/login/`
+- the Django admin login page `/admin/` (nothing behind it without an admin account)
 
-In the original code the detail page also opened removed listings if you typed their
-id. Removed listings now return 404.
+Posting, editing, Mine, messages, profile and the department desk use
+`login_required`, so they redirect to the sign-in page.
 
-## Profile form
+## What the profile form writes back
 
-In the original code the profile form wrote first name, last name, email and
-`is_staff` back to Django's `User` row. The “Show my name on the department board”
-checkbox was really `is_staff`.
-
-After the patch the form writes only first name, last name and email to `User`. The
-board choice is stored separately in the one-to-one `Profile` row. It is a display
-preference and does not give the user any permission.
+In the original code `ProfileForm` was a ModelForm on Django's `User` with the
+fields `first_name`, `last_name`, `email` and `is_staff`. The `is_staff` field was
+relabelled "Show my name on the department board", so the checkbox looked like a
+display setting but it saved the staff flag on the user row.
 
 ## Department desk
 
-The desk contains internal department pickup information, including the hold-closet
-location and reimbursement code. A visitor must be signed in and must already have
-Django's `is_staff` permission. A normal signed-in user receives HTTP 403. Staff
-status must be assigned by an administrator; it cannot be selected on the profile
-page. The hosted demo has no staff account, so the allowed case is checked in the
-tests.
+The desk shows internal department pickup information: the hold closet location
+and a reimbursement code. It is meant only for department board accounts. The view
+checks `request.user.is_staff`. Other signed-in users only see "This page is for
+department board accounts."
 
-## Security defect and reproduction
+## Security defect: any user can make themselves staff
 
-I found a privilege-escalation problem in the original profile form. The form showed
-a harmless-sounding department-board checkbox, but the checkbox was actually the
-Django `User.is_staff` field. The desk view trusted that same field.
+Steps on the original code:
 
-I reproduced it in the original version like this:
+1. Sign in as `alex` / `campus123` (a normal account).
+2. Open `/profile/`, tick "Show my name on the department board" and save.
+3. A "Desk" link appears in the header. Open `/desk/`.
+4. The page shows "Department hold closet, Hullihen basement cage B.
+   Reimbursement code DESK-2290."
 
-1. Sign in as a normal demo user such as `alex`.
-2. Open `/profile/`.
-3. Check “Show my name on the department board” and save.
-4. Open `/desk/`.
-5. The normal account can now read the private location and the `DESK-2290` code.
-
-The profile POST changed `is_staff` from false to true, so this was not only a hidden
-link problem. Typing the desk URL directly also worked after changing the checkbox.
-Because `is_staff` is also the Django admin flag, the same account could sign in at
-`/admin/`. It had no model permissions there, so it could not change data.
+The checkbox posts `is_staff=on`, so the user grants themselves the permission the
+desk checks. Since `is_staff` is also Django's admin flag, the account can also
+sign in at `/admin/`, although it has no model permissions there.
 
 ## Patch
 
-I replaced the form's direct `is_staff` field with
-`Profile.show_on_department_board`. Saving the profile now updates only the user's
-name, email and this separate preference. The desk still checks `is_staff`, but a
-user can no longer grant that permission to themselves. Non-staff requests return
-403 and staff accounts can still use the page.
+In `market/forms.py` I removed `is_staff` (and its label) from
+`ProfileForm.Meta.fields`. The form now only saves first name, last name and email.
+A ModelForm ignores POST fields that are not in `fields`, so sending `is_staff=on`
+by hand does not work either. I also removed the sentence about the board flag from
+`profile.html`.
 
-The patch does not take `is_staff` away from accounts that already used the bug. On
-Render the free database is rebuilt on every deploy, so this does not matter there.
-On a server that keeps its database, staff accounts that are not superusers should be
-checked by hand after deploying.
+Department board accounts now have to be set by an administrator in the Django
+admin. The desk view did not need to change. Posting, editing, marking sold and
+messaging are not affected.
 
-While checking access control, I also found that any signed-in account could open,
-edit or mark sold another seller's listing by changing the id in the URL. The original
-detail page even showed the Edit and Mark sold buttons to everyone. Opening the edit
-page was enough to read the private seller note. For example, signed in as `sam`,
-`/listings/1/edit/` showed Alex's note with locker 14 and the code `SWAP-7741`. A
-guessed thread id could also expose its messages, for example `/threads/1/` between
-Alex and Jordan. The listing views now load only objects owned by the current seller,
-and the thread view only loads a thread for its buyer or seller. The page also hides
-seller controls from other users. Normal posting and messaging are unchanged.
+Accounts that used the bug before the patch keep `is_staff`. On Render this does
+not matter because the database is rebuilt on each deploy. On a persistent
+database those accounts should be reset by an admin.
 
-## Verification
+## Hosting
 
-Run the checks from the project directory:
-
-```bash
-python manage.py migrate
-python manage.py test
-PRODUCTION=1 SECRET_KEY='use-a-long-random-value' \
-  ALLOWED_HOSTS='your-hostname.example' python manage.py check --deploy
-```
-
-The tests cover the public/private page split, removed listings, normal profile
-updates, the failed privilege-escalation attempt, staff desk access, listing ownership
-and thread participants.
+The app runs on Render with the existing Dockerfile (`render.yaml`). For hosting I
+added WhiteNoise so the CSS is served, `SECURE_PROXY_SSL_HEADER` so Django knows
+the request came in over HTTPS through Render's proxy (otherwise sign-in fails the
+CSRF origin check), and gunicorn binds to the `PORT` Render provides.

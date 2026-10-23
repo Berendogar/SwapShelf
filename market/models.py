@@ -40,11 +40,3 @@ class Message(models.Model):
 
     class Meta:
         ordering = ["created_at"]
-
-
-class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="market_profile")
-    show_on_department_board = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"{self.user.username} profile"

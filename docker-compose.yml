@@ -6,7 +6,6 @@ services:
     environment:
       DATABASE_PATH: /app/data/swapshelf.db
       SECRET_KEY: ${SECRET_KEY:-swapshelf-dev-secret}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
     volumes:
       - swapshelf-data:/app/data
     restart: unless-stopped

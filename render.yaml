@@ -6,7 +6,5 @@ services:
     healthCheckPath: /
     autoDeployTrigger: commit
     envVars:
-      - key: PRODUCTION
-        value: "1"
       - key: SECRET_KEY
         generateValue: true

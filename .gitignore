@@ -4,5 +4,4 @@ __pycache__/
 *.zip
 .env
 .venv/
-staticfiles/
 .DS_Store
